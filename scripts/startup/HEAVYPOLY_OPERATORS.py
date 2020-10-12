@@ -300,9 +300,8 @@ class HP_OT_SmartScale(Operator):
         return {'RUNNING_MODAL'}
     def modal(self, context, event):
  #       if event.type == 'MOUSEMOVE':
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        
-        print('Applying Scale')
+        #bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        #print('Applying Scale')
         return {'FINISHED'}
         if event.type in {'RIGHTMOUSE', 'ESC'}:
             return {'CANCELLED'}
