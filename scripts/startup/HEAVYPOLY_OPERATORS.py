@@ -494,9 +494,9 @@ class HP_OT_Subdivision_Toggle(bpy.types.Operator):
 class HP_OT_SaveWithoutPrompt(bpy.types.Operator):
     bl_idname = "wm.save_without_prompt"
     bl_label = "Save without prompt"
-
+    
     def execute(self, context):
-        bpy.ops.wm.save_mainfile()
+        bpy.ops.wm.save_mainfile('INVOKE_AREA')
         return {'FINISHED'}
 class HP_OT_RevertWithoutPrompt(bpy.types.Operator):
     bl_idname = "wm.revert_without_prompt"
