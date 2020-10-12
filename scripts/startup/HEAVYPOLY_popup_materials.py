@@ -27,6 +27,9 @@ class HP_MT_popup_materials(bpy.types.Operator):
                 # return input
         # return None
     def draw(self, context):
+
+        bpy.context.space_data.overlay.show_faces = False
+        
         layout = self.layout
         row = layout.row()
         col = row.column(align=True)
@@ -126,8 +129,13 @@ class HP_MT_popup_materials(bpy.types.Operator):
 
         if bpy.context.object.type == 'MESH':
             col.operator("mesh.material_apply", text='Apply Vertex Color')
-            col.operator("mesh.select_vertex_color", text='Select by Vertex Color')
-            col.operator("ui.eyedropper_id", text='Eyedropper')
+            col.operator("mesh.select_vertex_color", text='Select same Vertex Color')
+            col.operator("mesh.get_vertex_color", text='Get Vertex Color')
+            col.operator("mesh.mix_vertex_color", text='Mix Vertex Color')
+
+            col.prop(ptr, 'strength', slider=True)
+            col.operator("mesh.vertex_color_to_srgb", text='Colors to SRGB')
+
 
             me = bpy.context.active_object.data
             col.template_list("MESH_UL_vcols", "vcols", me, "vertex_colors", me.vertex_colors, "active_index", rows=1)
@@ -390,16 +398,164 @@ class HP_OT_select_vertex_color(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}  # enable undo for the operator.
     def execute(self, context):
         ob = bpy.context.object
-        colors_list = []
-        for ipoly in range(len(ob.data.polygons)):
-            for ivertex in ob.data.polygons[ipoly].loop_indices:
-                color_list = []
-                for i in range(4):
-                    color_list.append(str(ob.data.vertex_colors["Col"].data[ivertex].color[i]))
-                colors_list.append(color_list)
+
+        me = ob.data
+        ts = context.tool_settings
+        ups = ts.unified_paint_settings
+        poo = ups if ups.use_unified_color else ts.vertex_paint.brush
+        col = (poo.color[0],poo.color[1],poo.color[2])
+
+        #check for edit mode
+        editmode = False
+        if ob.mode == 'EDIT':
+            editmode =True
+            #the following sets mode to object by default
+            bpy.ops.object.mode_set()
+
+        for f in me.polygons:
+            if f.select:
+                print(f.index)
+                id = me.polygons[f.index].loop_indices[0];
+                col = me.vertex_colors[0].data[id].color
+
+        oripolycol = (col[0],col[1],col[2])
+
+        for f in me.polygons:
+            id = me.polygons[f.index].loop_indices[0];
+            polycol = me.vertex_colors[0].data[id].color
+
+            if(oripolycol == (polycol[0],polycol[1],polycol[2])):
+                f.select = True
+            else:
+                f.select = False
+
+                
+        #done editing, restore edit mode if needed
+        if editmode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+
+        return {'FINISHED'}
+
+class HP_OT_get_vertex_color(bpy.types.Operator):
+    bl_idname = "mesh.get_vertex_color"       # unique identifier for buttons and menu items to reference.
+    bl_label = "Get Vertex Color"       # display name in the interface.
+    bl_options = {'REGISTER', 'UNDO'}  # enable undo for the operator.
+    def execute(self, context):
+        ob = bpy.context.object
+
+        me = ob.data
+        ts = context.tool_settings
+        ups = ts.unified_paint_settings
+        poo = ups if ups.use_unified_color else ts.vertex_paint.brush
+        col = (poo.color[0],poo.color[1],poo.color[2])
 
 
-        print(colors_list)
+        #check for edit mode
+        editmode = False
+        if ob.mode == 'EDIT':
+            editmode =True
+            #the following sets mode to object by default
+            bpy.ops.object.mode_set()
+                
+
+        for f in me.polygons:
+            if f.select:
+                print(f.index)
+                id = me.polygons[f.index].loop_indices[0];
+                col = me.vertex_colors[0].data[id].color
+
+        id = me.polygons[me.polygons.active].loop_indices[0];
+        col = me.vertex_colors[0].data[id].color
+
+
+        poo.color = (col[0],col[1],col[2])
+        #bpy.data.brushes["Draw"].color = (col[0],col[1],col[2])
+        #bpy.data.brushes["Add"].color = (col[0],col[1],col[2])
+                
+        #done editing, restore edit mode if needed
+        if editmode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+
+        return {'FINISHED'}
+
+class HP_OT_mix_vertex_color(bpy.types.Operator):
+    bl_idname = "mesh.mix_vertex_color"       # unique identifier for buttons and menu items to reference.
+    bl_label = "Mix Vertex Color"       # display name in the interface.
+    bl_options = {'REGISTER', 'UNDO'}  # enable undo for the operator.
+    def execute(self, context):
+        ob = bpy.context.object
+
+        me = ob.data
+        ts = context.tool_settings
+        ups = ts.unified_paint_settings
+        poo = ups if ups.use_unified_color else ts.vertex_paint.brush
+        col = (poo.color[0],poo.color[1],poo.color[2])
+
+
+        #check for edit mode
+        editmode = False
+        if ob.mode == 'EDIT':
+            editmode =True
+            #the following sets mode to object by default
+            bpy.ops.object.mode_set()
+                
+
+        mixNew = poo.strength;
+        mixOld = 1-poo.strength;
+        for f in me.polygons:
+            if f.select:
+                print(f.index)
+                for li in range(len(me.polygons[f.index].loop_indices)):
+                    id = me.polygons[f.index].loop_indices[li];
+                    polycol = me.vertex_colors[0].data[id].color;
+                    me.vertex_colors[0].data[id].color = (polycol[0]*mixOld+col[0]*mixNew,polycol[1]*mixOld+col[1]*mixNew,polycol[2]*mixOld+col[2]*mixNew,polycol[3])
+                
+
+        #done editing, restore edit mode if needed
+        if editmode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+
+
+        return {'FINISHED'}
+
+class HP_OT_vertex_color_to_srgb(bpy.types.Operator):
+    bl_idname = "mesh.vertex_color_to_srgb"       # unique identifier for buttons and menu items to reference.
+    bl_label = "To SRGB"       # display name in the interface.
+    bl_options = {'REGISTER', 'UNDO'}  # enable undo for the operator.
+    def execute(self, context):
+        ob = bpy.context.object
+
+        me = ob.data
+        ts = context.tool_settings
+        ups = ts.unified_paint_settings
+        poo = ups if ups.use_unified_color else ts.vertex_paint.brush
+        col = (poo.color[0],poo.color[1],poo.color[2])
+
+        def toSRGB(value):
+            if (value > 0.0031308):
+                value = 1.055 * (pow(value, (1.0 / 2.4))) - 0.055
+            else:
+                value = 12.92 * value
+            return value
+
+        #check for edit mode
+        editmode = False
+        if ob.mode == 'EDIT':
+            editmode =True
+            #the following sets mode to object by default
+            bpy.ops.object.mode_set()
+                
+        for f in me.polygons:
+            for li in range(len(me.polygons[f.index].loop_indices)):
+                id = me.polygons[f.index].loop_indices[li];
+                polycol = me.vertex_colors[0].data[id].color;
+                me.vertex_colors[0].data[id].color = (toSRGB(polycol[0]),toSRGB(polycol[1]),toSRGB(polycol[2]),1)
+
+        #done editing, restore edit mode if needed
+        if editmode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+
+
         return {'FINISHED'}
 
 classes = (
@@ -411,6 +567,9 @@ classes = (
     HP_OT_material_new,
     HP_OT_apply,
     HP_OT_select_vertex_color,
+    HP_OT_get_vertex_color,
+    HP_OT_mix_vertex_color,
+    HP_OT_vertex_color_to_srgb,
     HP_OT_gp_stroketoggle,
     HP_OT_gp_filltoggle
 )
