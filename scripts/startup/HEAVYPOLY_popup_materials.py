@@ -358,6 +358,14 @@ class HP_OT_apply(bpy.types.Operator):
     def execute(self, context):
         obj = bpy.context.object
         mesh = obj.data
+
+        if len(bpy.context.object.data.vertex_colors) == 0:
+            mesh.vertex_colors.new(name="Col")
+            mesh.vertex_colors.active = mesh.vertex_colors[0];
+
+        if not mesh.vertex_colors.active.name in mesh.vertex_colors:
+            mesh.vertex_colors.active = mesh.vertex_colors[0];
+        
         #if bpy.context.object.active_material.name.endswith('_V'):
         if context.active_object.mode == 'OBJECT':
             bpy.ops.object.editmode_toggle()
